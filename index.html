@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#FFFFFF">
 <title>오브하우스</title>
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
@@ -19,19 +20,38 @@ html,body{margin:0;height:100%;background:#F2F4F6;overflow:hidden}
 #app{position:fixed;top:0;left:0;width:100%;height:100%;border:0;display:block;background:#F2F4F6}
 #wait{position:fixed;top:0;left:0;right:0;bottom:0;z-index:2;background:#F2F4F6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#4E5968;font-size:15px;pointer-events:none}
 #wait img{width:96px;height:96px;border-radius:22px;border:1px solid #E5E8EB;background:#fff}
+#push{position:fixed;left:0;right:0;bottom:0;z-index:3;background:#fff;border-top:1px solid #E5E8EB;box-shadow:0 -6px 24px rgba(0,0,0,.08);padding:16px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#191F28}
+#push[hidden]{display:none}
+#push b{display:block;font-size:16px;margin-bottom:4px}
+#push p{margin:0 0 12px;font-size:14px;color:#4E5968;line-height:1.45}
+#push .row{display:flex;gap:8px}
+#push button{flex:1;border:0;border-radius:12px;padding:13px 10px;font-size:15px;font-weight:600;font-family:inherit}
+#pushOn{background:#3182F6;color:#fff}
+#pushLater{background:#F2F4F6;color:#4E5968}
 </style>
 </head>
 <body>
 <div id="wait"><img src="apple-touch-icon.png" alt=""><div>오브하우스 여는 중…</div></div>
 <iframe id="app" title="오브하우스 운영" allow="clipboard-write"></iframe>
+<div id="push" hidden role="dialog" aria-label="폰 알림 켜기">
+  <b>📣 공지·중요한 소식을 폰 알림으로 받을까요?</b>
+  <p>새 공지나 중요 표시한 글이 올라오면 카톡처럼 알려 드려요. 나중에 폰 설정에서 끌 수 있어요.</p>
+  <div class="row"><button type="button" id="pushLater">나중에</button><button type="button" id="pushOn">알림 켜기</button></div>
+</div>
 <script>
 (function () {
   // 오브하우스 운영 페이지(구글 앱스 스크립트)를 이 페이지 안에 끼워 넣어 연다 → 홈 화면 아이콘이 부엉이가 됨
-  // 내 입장권은 이 페이지 주소의 # 뒤에만 둔다 (# 뒤는 이 페이지 서버(GitHub)로 안 감). 운영 페이지가 들어온 뒤 알려 주면 # 뒤를 바꿈
+  // 내 입장권: 처음엔 이 페이지 주소의 # 뒤로 받고(# 뒤는 GitHub로 안 감), 이 페이지 저장칸(이 기기·이 앱에만)에도 둔다.
+  // 홈 화면 앱은 manifest의 start_url(# 없음)로 열려서, 저장칸에 둔 입장권으로 다시 들어감. 나가면 운영 페이지가 알려 줘서 지움
   var APP = 'https://script.google.com/macros/s/AKfycbxbIJlboUFAuFeVSiSmRJR8pCPwrwwWzch7fVyFgryhcQ9pYFpEGhVq4-cdnwUFvo5I/exec';
-  var HEX = /^[0-9a-f]{64}$/;
+  // 폰 알림 (OneSignal 웹 푸시). appId가 비어 있으면 알림 기능을 아예 안 씀. appId는 공개해도 되는 값(비밀 키 아님)
+  var PUSH = { appId: '', sw: 'obrhouse/push/onesignal/OneSignalSDKWorker.js', scope: '/obrhouse/push/onesignal/', sdk: 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js' };
+  var HEX = /^[0-9a-f]{64}$/, KEY = 'obr_t', LATER = 'obr_push_later';
+  var get = function (k) { try { return localStorage.getItem(k) || ''; } catch (err) { return ''; } };
+  var put = function (k, v) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (err) {} };
   var m = /(?:^#|&)t=([0-9a-f]{64})(?:&|$)/.exec(location.hash || '');
-  var t = m ? m[1] : '';
+  var t = m ? m[1] : (HEX.test(get(KEY)) ? get(KEY) : '');
+  if (m) put(KEY, t);
   // 이 페이지를 다른 사이트가 끼워 넣었으면 운영 페이지를 안 엶
   if (window.top !== window.self) { document.getElementById('wait').textContent = '여기서는 열 수 없어요'; return; }
   var f = document.getElementById('app');
@@ -46,8 +66,43 @@ html,body{margin:0;height:100%;background:#F2F4F6;overflow:hidden}
     if (!ok) return;
     var d = e.data || {};
     if (!d || d.obr !== 'token' || typeof d.t !== 'string' || (d.t && !HEX.test(d.t))) return;
-    try { history.replaceState(null, '', location.pathname + (d.t ? '#t=' + d.t : '')); } catch (err) {}
+    t = d.t; put(KEY, t);
+    try { history.replaceState(null, '', location.pathname + (t ? '#t=' + t : '')); } catch (err) {}
+    pushMaybeAsk();
   });
+
+  // ── 폰 알림: 홈 화면 앱(또는 안드로이드·PC 크롬)에서, 들어온 뒤에, 아직 안 물어본 사람에게만 아래 칸을 띄움
+  //    아이폰은 '탭'으로만 허락 창이 뜸 → [알림 켜기]를 누를 때 바로 OneSignal에 요청 (16.4 이상 홈 화면 앱)
+  var box = document.getElementById('push'), ready = null, OS = null;
+  var standalone = window.navigator.standalone === true || (window.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches));
+  var ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var canPush = !!PUSH.appId && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && (standalone || !ios);
+  function pushLoad() {
+    if (ready || !canPush) return ready;
+    ready = new Promise(function (res) {
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      window.OneSignalDeferred.push(function (OneSignal) {
+        return OneSignal.init({ appId: PUSH.appId, serviceWorkerPath: PUSH.sw, serviceWorkerParam: { scope: PUSH.scope } })
+          .then(function () { OS = OneSignal; res(OneSignal); }, function () { res(null); });
+      });
+      var s = document.createElement('script'); s.src = PUSH.sdk; s.defer = true; s.onerror = function () { res(null); };
+      document.head.appendChild(s);
+    });
+    return ready;
+  }
+  function pushMaybeAsk() {
+    if (!canPush || !t || Notification.permission !== 'default') { box.hidden = true; return; }
+    if (Date.now() - Number(get(LATER) || 0) < 3 * 864e5) return;
+    pushLoad().then(function (OneSignal) { if (OneSignal && t && Notification.permission === 'default') box.hidden = false; });
+  }
+  document.getElementById('pushLater').addEventListener('click', function () { put(LATER, String(Date.now())); box.hidden = true; });
+  document.getElementById('pushOn').addEventListener('click', function () {
+    box.hidden = true;
+    // 탭 안에서 바로 부름 (기다렸다 부르면 아이폰이 허락 창을 안 띄움)
+    if (OS) try { OS.Notifications.requestPermission().catch(function () {}); } catch (err) {}
+  });
+  if (canPush && Notification.permission === 'granted') pushLoad(); // 이미 켠 기기: 구독이 살아 있게 매번 붙임
+  pushMaybeAsk();
 })();
 </script>
 </body>
