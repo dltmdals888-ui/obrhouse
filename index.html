@@ -84,9 +84,9 @@ html,body{margin:0;height:100%;background:#F2F4F6;overflow:hidden}
       window.OneSignalDeferred.push(function (OneSignal) {
         return OneSignal.init({ appId: PUSH.appId, serviceWorkerPath: PUSH.sw, serviceWorkerParam: { scope: PUSH.scope }, safari_web_id: PUSH.safari,
           welcomeNotification: { title: '오브하우스', message: '알림을 켰어요. 새 공지가 올라오면 알려 드릴게요.' } })
-          .then(function () { OS = OneSignal; res(OneSignal); }, function () { res(null); });
+          .then(function () { OS = OneSignal; res(true); }, function () { res(false); }); // SDK 객체 대신 true만 넘김 (객체에 then이 있으면 Promise가 안 끝날 수 있어서, 혹시 몰라)
       });
-      var s = document.createElement('script'); s.src = PUSH.sdk; s.defer = true; s.onerror = function () { res(null); };
+      var s = document.createElement('script'); s.src = PUSH.sdk; s.defer = true; s.onerror = function () { res(false); };
       document.head.appendChild(s);
     });
     return ready;
@@ -94,7 +94,7 @@ html,body{margin:0;height:100%;background:#F2F4F6;overflow:hidden}
   function pushMaybeAsk() {
     if (!canPush || !t || Notification.permission !== 'default') { box.hidden = true; return; }
     if (Date.now() - Number(get(LATER) || 0) < 3 * 864e5) return;
-    pushLoad().then(function (OneSignal) { if (OneSignal && t && Notification.permission === 'default') box.hidden = false; });
+    pushLoad().then(function (ok) { if (ok && OS && t && Notification.permission === 'default') box.hidden = false; });
   }
   document.getElementById('pushLater').addEventListener('click', function () { put(LATER, String(Date.now())); box.hidden = true; });
   document.getElementById('pushOn').addEventListener('click', function () {
