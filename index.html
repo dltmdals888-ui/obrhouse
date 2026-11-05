@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="오브하우스">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#FFFFFF">
+<title>오브하우스</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<style>
+html,body{margin:0;height:100%;background:#F2F4F6;overflow:hidden}
+#app{position:fixed;top:0;left:0;width:100%;height:100%;border:0;display:block;background:#F2F4F6}
+#wait{position:fixed;top:0;left:0;right:0;bottom:0;z-index:2;background:#F2F4F6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#4E5968;font-size:15px;pointer-events:none}
+#wait img{width:96px;height:96px;border-radius:22px;border:1px solid #E5E8EB;background:#fff}
+</style>
+</head>
+<body>
+<div id="wait"><img src="apple-touch-icon.png" alt=""><div>오브하우스 여는 중…</div></div>
+<iframe id="app" title="오브하우스 운영" allow="clipboard-write"></iframe>
+<script>
+(function () {
+  // 오브하우스 운영 페이지(구글 앱스 스크립트)를 이 페이지 안에 끼워 넣어 연다 → 홈 화면 아이콘이 부엉이가 됨
+  // 내 입장권은 이 페이지 주소의 # 뒤에만 둔다 (# 뒤는 이 페이지 서버(GitHub)로 안 감). 운영 페이지가 들어온 뒤 알려 주면 # 뒤를 바꿈
+  var APP = 'https://script.google.com/macros/s/AKfycbxbIJlboUFAuFeVSiSmRJR8pCPwrwwWzch7fVyFgryhcQ9pYFpEGhVq4-cdnwUFvo5I/exec';
+  var HEX = /^[0-9a-f]{64}$/;
+  var m = /(?:^#|&)t=([0-9a-f]{64})(?:&|$)/.exec(location.hash || '');
+  var t = m ? m[1] : '';
+  // 이 페이지를 다른 사이트가 끼워 넣었으면 운영 페이지를 안 엶
+  if (window.top !== window.self) { document.getElementById('wait').textContent = '여기서는 열 수 없어요'; return; }
+  var f = document.getElementById('app');
+  f.addEventListener('load', function () { var w = document.getElementById('wait'); if (w) w.remove(); });
+  f.src = APP + (t ? '?t=' + t : '');
+  // 운영 페이지(구글 사용자 콘텐츠 주소)가 보낸 입장권만 받음
+  window.addEventListener('message', function (e) {
+    if (!/^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(e.origin || '')) return;
+    // 우리가 끼워 넣은 운영 페이지 안에서 온 것만 (다른 창이 보낸 건 버림)
+    var w = e.source, ok = false;
+    for (var i = 0; w && i < 6; i++) { if (w === f.contentWindow) { ok = true; break; } try { if (w === w.parent) break; w = w.parent; } catch (err) { break; } }
+    if (!ok) return;
+    var d = e.data || {};
+    if (!d || d.obr !== 'token' || typeof d.t !== 'string' || (d.t && !HEX.test(d.t))) return;
+    try { history.replaceState(null, '', location.pathname + (d.t ? '#t=' + d.t : '')); } catch (err) {}
+  });
+})();
+</script>
+</body>
+</html>
