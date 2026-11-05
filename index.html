@@ -45,7 +45,7 @@ html,body{margin:0;height:100%;background:#F2F4F6;overflow:hidden}
   // 홈 화면 앱은 manifest의 start_url(# 없음)로 열려서, 저장칸에 둔 입장권으로 다시 들어감. 나가면 운영 페이지가 알려 줘서 지움
   var APP = 'https://script.google.com/macros/s/AKfycbxbIJlboUFAuFeVSiSmRJR8pCPwrwwWzch7fVyFgryhcQ9pYFpEGhVq4-cdnwUFvo5I/exec';
   // 폰 알림 (OneSignal 웹 푸시). appId가 비어 있으면 알림 기능을 아예 안 씀. appId는 공개해도 되는 값(비밀 키 아님)
-  var PUSH = { appId: '', sw: 'obrhouse/push/onesignal/OneSignalSDKWorker.js', scope: '/obrhouse/push/onesignal/', sdk: 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js' };
+  var PUSH = { appId: '2a53b19c-9659-485b-893d-2123e6d547bb', sw: 'obrhouse/push/onesignal/OneSignalSDKWorker.js', scope: '/obrhouse/push/onesignal/', sdk: 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js' };
   var HEX = /^[0-9a-f]{64}$/, KEY = 'obr_t', LATER = 'obr_push_later';
   var get = function (k) { try { return localStorage.getItem(k) || ''; } catch (err) { return ''; } };
   var put = function (k, v) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (err) {} };
