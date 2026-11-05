@@ -65,6 +65,9 @@ html,body{margin:0;height:100%;background:#F2F4F6;overflow:hidden}
     for (var i = 0; w && i < 6; i++) { if (w === f.contentWindow) { ok = true; break; } try { if (w === w.parent) break; w = w.parent; } catch (err) { break; } }
     if (!ok) return;
     var d = e.data || {};
+    appWin = e.source; appOrigin = e.origin; // 알림 상태를 이 창에만 알려 줌
+    if (d && d.obr === 'pushHello') { pushTell(); return; } // 운영 페이지가 '이 폰 알림 켜졌어?' 물음
+    if (d && d.obr === 'pushAsk') { put(LATER, ''); pushMaybeAsk(true); return; } // 운영 페이지 [알림 켜기] → 아래 칸 다시
     if (!d || d.obr !== 'token' || typeof d.t !== 'string' || (d.t && !HEX.test(d.t))) return;
     t = d.t; put(KEY, t);
     try { history.replaceState(null, '', location.pathname + (t ? '#t=' + t : '')); } catch (err) {}
@@ -73,7 +76,7 @@ html,body{margin:0;height:100%;background:#F2F4F6;overflow:hidden}
 
   // ── 폰 알림: 홈 화면 앱(또는 안드로이드·PC 크롬)에서, 들어온 뒤에, 아직 안 물어본 사람에게만 아래 칸을 띄움
   //    아이폰은 '탭'으로만 허락 창이 뜸 → [알림 켜기]를 누를 때 바로 OneSignal에 요청 (16.4 이상 홈 화면 앱)
-  var box = document.getElementById('push'), ready = null, OS = null;
+  var box = document.getElementById('push'), ready = null, OS = null, appWin = null, appOrigin = '';
   var standalone = window.navigator.standalone === true || (window.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches));
   var ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   var canPush = !!PUSH.appId && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && (standalone || !ios);
@@ -84,15 +87,34 @@ html,body{margin:0;height:100%;background:#F2F4F6;overflow:hidden}
       window.OneSignalDeferred.push(function (OneSignal) {
         return OneSignal.init({ appId: PUSH.appId, serviceWorkerPath: PUSH.sw, serviceWorkerParam: { scope: PUSH.scope }, safari_web_id: PUSH.safari,
           welcomeNotification: { title: '오브하우스', message: '알림을 켰어요. 새 공지가 올라오면 알려 드릴게요.' } })
-          .then(function () { OS = OneSignal; res(true); }, function () { res(false); }); // SDK 객체 대신 true만 넘김 (객체에 then이 있으면 Promise가 안 끝날 수 있어서, 혹시 몰라)
+          .then(function () {
+            OS = OneSignal;
+            try { OS.User.PushSubscription.addEventListener('change', pushTell); OS.Notifications.addEventListener('permissionChange', pushTell); } catch (err) {}
+            res(true); pushTell();
+          }, function () { res(false); }); // SDK 객체 대신 true만 넘김 (객체에 then이 있으면 Promise가 안 끝날 수 있어서, 혹시 몰라)
       });
       var s = document.createElement('script'); s.src = PUSH.sdk; s.defer = true; s.onerror = function () { res(false); };
       document.head.appendChild(s);
     });
     return ready;
   }
-  function pushMaybeAsk() {
-    if (!canPush || !t || Notification.permission !== 'default') { box.hidden = true; return; }
+  // 운영 페이지에 이 폰 알림 상태·기기 번호(OneSignal 구독 ID)를 알려 줌 → 운영 페이지가 서버 [알림 기기]에 적음
+  // on=켜짐 / off=안 켬 / denied=폰 설정에서 막힘 / need-home=아이폰은 홈 화면 앱에서만 / unsupported=이 브라우저는 안 됨
+  function pushState() {
+    if (!PUSH.appId || !('serviceWorker' in navigator) || !('Notification' in window)) return 'unsupported';
+    if (ios && !standalone) return 'need-home';
+    if (!('PushManager' in window)) return 'unsupported';
+    if (Notification.permission === 'denied') return 'denied';
+    var ps = OS && OS.User && OS.User.PushSubscription;
+    return Notification.permission === 'granted' && ps && ps.optedIn && ps.id ? 'on' : 'off';
+  }
+  function pushTell() {
+    if (!appWin || !appOrigin) return;
+    var st = pushState(), ps = OS && OS.User && OS.User.PushSubscription;
+    try { appWin.postMessage({ obr: 'push', state: st, sid: st === 'on' ? String(ps.id || '') : '' }, appOrigin); } catch (err) {}
+  }
+  function pushMaybeAsk(asked) {
+    if (!canPush || !t || Notification.permission !== 'default') { box.hidden = true; if (asked) pushTell(); return; }
     if (Date.now() - Number(get(LATER) || 0) < 3 * 864e5) return;
     pushLoad().then(function (ok) { if (ok && OS && t && Notification.permission === 'default') box.hidden = false; });
   }
